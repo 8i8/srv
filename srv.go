@@ -48,7 +48,7 @@ func Handle(pattern string, h any, mw ...Mware) Route {
 }
 
 // Wrap wraps the Route with the given Mware's.
-func (r Route) Wrap(mw ...Mware) Route {
+func (r *Route) Wrap(mw ...Mware) Route {
 	for _, fn := range mw {
 		r.fn = fn(r.fn)
 	}
@@ -65,13 +65,13 @@ type Group struct {
 }
 
 // Wrap wraps all sub groups and routes withing the group with the give Mware.
-func (g Group) Wrap(mw ...Mware) Group {
+func (g *Group) Wrap(mw ...Mware) Group {
 	g.wrap = append(g.wrap, mw...)
 	return g
 }
 
 // Add takes either Group as sub groups or Routes and adds them to this Group.
-func (g Group) Add(v ...any) Group {
+func (g *Group) Add(v ...any) Group {
 	for _, v := range v {
 		switch t := v.(type) {
 		case []Group:
@@ -93,7 +93,7 @@ func (g Group) Add(v ...any) Group {
 
 // compose compiles the groups sub groups into routes and wraps them with the
 // groups Mware functions.
-func (g Group) compose() []Route {
+func (g *Group) compose() []Route {
 	for _, group := range g.groups {
 		g.routes = append(g.routes, group.compose()...)
 	}
@@ -131,14 +131,14 @@ func (r *Router) Set(mux *http.ServeMux) *Router {
 
 // Wrap adds the given Mware to the Router, to be latter applied to evey route
 // and group that the router contains, upon composing.
-func (r Router) Wrap(mw ...Mware) Router {
+func (r *Router) Wrap(mw ...Mware) Router {
 	r.wrap = append(r.wrap, mw...)
 	return r
 }
 
 // Add adds any given Groups or Routes to the router. Handlers and
 // HanderlerFuncs should be added using Handle.
-func (r Router) Add(v ...any) Router {
+func (r *Router) Add(v ...any) Router {
 	for _, in := range v {
 		switch t := in.(type) {
 		case []Group:
@@ -161,7 +161,7 @@ func (r Router) Add(v ...any) Router {
 }
 
 // Wrap adds the given Mware to all of these Routes.
-func (r Routes) Wrap(mw ...Mware) Routes {
+func (r *Routes) Wrap(mw ...Mware) Routes {
 	for j := range r {
 		for i := range mw {
 			r[j].fn = mw[i](r[j].fn)
