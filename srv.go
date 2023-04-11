@@ -24,7 +24,7 @@ type Route struct {
 // function that meets the http.HandlerFunc type requirments returning a Route
 // which contins the given object wrappend with any Mware that have been passed
 // in after the Handler or the HandlerFunc object.
-func Handle(pattern string, h any, mw ...Mware) Route {
+func Handle(pattern string, h any, mw ...Mware) *Route {
 	var fn http.HandlerFunc
 	switch t := h.(type) {
 	case http.Handler:
@@ -40,7 +40,7 @@ func Handle(pattern string, h any, mw ...Mware) Route {
 		log.Output(2, msg)
 		os.Exit(1)
 	}
-	route := Route{pattern, fn}
+	route := &Route{pattern, fn}
 	for _, fn := range mw {
 		route.fn = fn(route.fn)
 	}
@@ -48,7 +48,7 @@ func Handle(pattern string, h any, mw ...Mware) Route {
 }
 
 // Wrap wraps the Route with the given Mware's.
-func (r *Route) Wrap(mw ...Mware) Route {
+func (r *Route) Wrap(mw ...Mware) *Route {
 	for _, fn := range mw {
 		r.fn = fn(r.fn)
 	}
@@ -65,23 +65,23 @@ type Group struct {
 }
 
 // Wrap wraps all sub groups and routes withing the group with the give Mware.
-func (g *Group) Wrap(mw ...Mware) Group {
+func (g *Group) Wrap(mw ...Mware) *Group {
 	g.wrap = append(g.wrap, mw...)
 	return g
 }
 
 // Add takes either Group as sub groups or Routes and adds them to this Group.
-func (g *Group) Add(v ...any) Group {
+func (g *Group) Add(v ...any) *Group {
 	for _, v := range v {
 		switch t := v.(type) {
 		case []Group:
 			g.groups = append(g.groups, t...)
-		case Group:
-			g.groups = append(g.groups, t)
+		case *Group:
+			g.groups = append(g.groups, *t)
 		case []Route:
 			g.routes = append(g.routes, t...)
-		case Route:
-			g.routes = append(g.routes, t)
+		case *Route:
+			g.routes = append(g.routes, *t)
 		case string:
 			log.Fatal("use " + pkg + ".Handle() to add an endpoint")
 		default:
@@ -115,14 +115,6 @@ type Router struct {
 	wrap   []Mware
 }
 
-// NewRouter returns a Router with a new *http.ServeMux server alreasy set
-// inside.
-func NewRouter() Router {
-	return Router{
-		mux: http.NewServeMux(),
-	}
-}
-
 // Set sets the given *http.ServeMux server into the router.
 func (r *Router) Set(mux *http.ServeMux) *Router {
 	r.mux = mux
@@ -131,24 +123,24 @@ func (r *Router) Set(mux *http.ServeMux) *Router {
 
 // Wrap adds the given Mware to the Router, to be latter applied to evey route
 // and group that the router contains, upon composing.
-func (r *Router) Wrap(mw ...Mware) Router {
+func (r *Router) Wrap(mw ...Mware) *Router {
 	r.wrap = append(r.wrap, mw...)
 	return r
 }
 
 // Add adds any given Groups or Routes to the router. Handlers and
 // HanderlerFuncs should be added using Handle.
-func (r *Router) Add(v ...any) Router {
+func (r *Router) Add(v ...any) *Router {
 	for _, in := range v {
 		switch t := in.(type) {
 		case []Group:
 			r.groups = append(r.groups, t...)
-		case Group:
-			r.groups = append(r.groups, t)
+		case *Group:
+			r.groups = append(r.groups, *t)
 		case []Route:
 			r.routes = append(r.routes, t...)
-		case Route:
-			r.routes = append(r.routes, t)
+		case *Route:
+			r.routes = append(r.routes, *t)
 		case http.HandlerFunc:
 			log.Fatal("use " + pkg + ".Handle() to add endpoint")
 		case string:
@@ -161,10 +153,10 @@ func (r *Router) Add(v ...any) Router {
 }
 
 // Wrap adds the given Mware to all of these Routes.
-func (r *Routes) Wrap(mw ...Mware) Routes {
-	for j := range r {
+func (r *Routes) Wrap(mw ...Mware) *Routes {
+	for j := range *r {
 		for i := range mw {
-			r[j].fn = mw[i](r[j].fn)
+			(*r)[j].fn = mw[i]((*r)[j].fn)
 		}
 	}
 	return r
@@ -183,7 +175,10 @@ func (r Routes) Serve() *http.ServeMux {
 // composes all groups into routes wrapping them with any group specific
 // middleware then finaly it wraps all of its Routes with any Mware that the
 // Router contains.
-func (r Router) Compose(v ...any) *http.ServeMux {
+func (r *Router) Compose(v ...any) *http.ServeMux {
+	if r.mux == nil {
+		r.mux = http.NewServeMux()
+	}
 	r = r.Add(v...)
 	for _, group := range r.groups {
 		r.routes = append(r.routes, group.compose()...)
